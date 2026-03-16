@@ -61,7 +61,6 @@ export function CanvasPanel({
   const handleMore = async () => {
     if (!lastTopic) return;
 
-    // Fetch 5 more facts
     toast.info("আরও ৫টি তথ্য খুঁজছে...");
 
     try {
@@ -85,43 +84,72 @@ export function CanvasPanel({
 
       setPosts((prev: GeneratedPost[]) => [...prev, ...newPosts]);
 
-      const results = await Promise.allSettled(
-        newPosts.map(async (post: GeneratedPost, i: number) => {
-          try {
-            const { data, error: imgErr } = await supabase.functions.invoke("generate-post", {
-              body: {
-                topic: lastTopic,
-                contentType: lastContentType,
-                caption: facts[i].fact,
-                platform: platStr,
-                aspectRatio,
-              },
-            });
-            if (imgErr) throw imgErr;
-            if (data?.error) throw new Error(data.error);
-            return { id: post.id, imageUrl: data?.imageUrl || null };
-          } catch {
-            return { id: post.id, imageUrl: null };
-          }
-        })
-      );
+      // Sequential generation with delay to avoid rate limits
+      for (let i = 0; i < newPosts.length; i++) {
+        const post = newPosts[i];
+        if (i > 0) {
+          await new Promise((resolve) => setTimeout(resolve, 12000));
+        }
+        try {
+          const { data, error: imgErr } = await supabase.functions.invoke("generate-post", {
+            body: {
+              topic: lastTopic,
+              contentType: lastContentType,
+              caption: facts[i].fact,
+              platform: platStr,
+              aspectRatio,
+            },
+          });
 
-      setPosts((prev: GeneratedPost[]) =>
-        prev.map((p) => {
-          const result = results.find(
-            (r) => r.status === "fulfilled" && r.value.id === p.id
+          if (imgErr) throw imgErr;
+          if (data?.error) throw new Error(data.error);
+
+          setPosts((prev: GeneratedPost[]) =>
+            prev.map((p) =>
+              p.id === post.id
+                ? { ...p, imageUrl: data?.imageUrl || null, isGenerating: false }
+                : p
+            )
           );
-          if (result?.status === "fulfilled") {
-            return { ...p, imageUrl: result.value.imageUrl, isGenerating: false };
+        } catch (err: any) {
+          console.error(`More image gen failed for post ${i}:`, err);
+          const errMsg = err?.message || "";
+          if (errMsg.includes("Rate limit") || errMsg.includes("429") || errMsg.includes("non-2xx")) {
+            toast.info(`⏳ Rate limit — 20s পর আবার চেষ্টা করছে...`);
+            await new Promise((resolve) => setTimeout(resolve, 20000));
+            try {
+              const { data, error: retryErr } = await supabase.functions.invoke("generate-post", {
+                body: {
+                  topic: lastTopic,
+                  contentType: lastContentType,
+                  caption: facts[i].fact,
+                  platform: platStr,
+                  aspectRatio,
+                },
+              });
+              if (!retryErr && !data?.error) {
+                setPosts((prev: GeneratedPost[]) =>
+                  prev.map((p) =>
+                    p.id === post.id
+                      ? { ...p, imageUrl: data?.imageUrl || null, isGenerating: false }
+                      : p
+                  )
+                );
+                continue;
+              }
+            } catch {
+              // retry failed
+            }
           }
-          if (newPosts.some((np: GeneratedPost) => np.id === p.id)) {
-            return { ...p, isGenerating: false };
-          }
-          return p;
-        })
-      );
+          setPosts((prev: GeneratedPost[]) =>
+            prev.map((p) =>
+              p.id === post.id ? { ...p, isGenerating: false } : p
+            )
+          );
+        }
+      }
 
-      toast.success("আরও ৫টি পোস্ট তৈরি হয়েছে!");
+      toast.success("আরও পোস্ট তৈরি হয়েছে!");
     } catch (err: any) {
       toast.error(err.message || "সমস্যা হয়েছে");
     }
@@ -188,7 +216,7 @@ export function CanvasPanel({
         <div className="w-full max-w-4xl grid grid-cols-2 lg:grid-cols-3 gap-4">
           {posts.map((post) => (
             <div key={post.id} className="rounded-2xl overflow-hidden bg-card border border-border shadow-sm flex flex-col">
-              {/* Image */}
+              {/* Image with text overlay */}
               <div className={`relative ${aspectRatio === "1:1" ? "aspect-square" : "aspect-[9/16]"} bg-muted`}>
                 {post.isGenerating ? (
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
@@ -196,7 +224,15 @@ export function CanvasPanel({
                     <p className="text-xs text-muted-foreground">তৈরি হচ্ছে...</p>
                   </div>
                 ) : post.imageUrl ? (
-                  <img src={post.imageUrl} alt="Generated post" className="w-full h-full object-cover" />
+                  <>
+                    <img src={post.imageUrl} alt="Generated post" className="w-full h-full object-cover" />
+                    {/* Black blur bar at bottom with Bengali text */}
+                    <div className="absolute bottom-0 left-0 right-0 backdrop-blur-md bg-black/60 px-3 py-3">
+                      <p className="text-white text-xs sm:text-sm font-semibold leading-relaxed drop-shadow-md">
+                        {post.caption}
+                      </p>
+                    </div>
+                  </>
                 ) : (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <p className="text-xs text-muted-foreground">ইমেজ তৈরি হয়নি</p>
@@ -204,20 +240,17 @@ export function CanvasPanel({
                 )}
               </div>
 
-              {/* Caption & Actions */}
-              <div className="p-3 space-y-2">
-                <p className="text-xs text-foreground line-clamp-3 leading-relaxed">{post.caption}</p>
-                <div className="flex gap-2">
-                  {post.imageUrl && (
-                    <Button size="sm" variant="outline" className="text-xs gap-1 rounded-lg flex-1" onClick={() => handleDownload(post)}>
-                      <Download className="h-3 w-3" />
-                      ডাউনলোড
-                    </Button>
-                  )}
-                  <Button size="sm" variant="ghost" className="text-xs gap-1 rounded-lg" onClick={() => handleCopyCaption(post.caption)}>
-                    <Copy className="h-3 w-3" />
+              {/* Actions */}
+              <div className="p-2.5 flex gap-2">
+                {post.imageUrl && (
+                  <Button size="sm" variant="outline" className="text-xs gap-1 rounded-lg flex-1" onClick={() => handleDownload(post)}>
+                    <Download className="h-3 w-3" />
+                    ডাউনলোড
                   </Button>
-                </div>
+                )}
+                <Button size="sm" variant="ghost" className="text-xs gap-1 rounded-lg" onClick={() => handleCopyCaption(post.caption)}>
+                  <Copy className="h-3 w-3" />
+                </Button>
               </div>
             </div>
           ))}

@@ -115,6 +115,16 @@ export function CanvasPanel({
         } catch (err: any) {
           console.error(`More image gen failed for post ${i}:`, err);
           const errMsg = err?.message || "";
+          const isCreditsExhausted = errMsg.includes("Credits exhausted") || errMsg.includes("402");
+          if (isCreditsExhausted) {
+            setPosts((prev: GeneratedPost[]) =>
+              prev.map((p) =>
+                p.id === post.id ? { ...p, isGenerating: false } : p
+              )
+            );
+            toast.error("AI credits শেষ — নতুন credit add করলে আবার generate করতে পারবেন");
+            break;
+          }
           if (errMsg.includes("Rate limit") || errMsg.includes("429") || errMsg.includes("non-2xx")) {
             toast.info(`⏳ Rate limit — 20s পর আবার চেষ্টা করছে...`);
             await new Promise((resolve) => setTimeout(resolve, 20000));
@@ -152,7 +162,13 @@ export function CanvasPanel({
 
       toast.success("আরও পোস্ট তৈরি হয়েছে!");
     } catch (err: any) {
-      toast.error(err.message || "সমস্যা হয়েছে");
+      const message = err?.message || "সমস্যা হয়েছে";
+      const isCreditsExhausted = message.includes("Credits exhausted") || message.includes("402");
+      toast.error(
+        isCreditsExhausted
+          ? "AI credits শেষ — নতুন credit add করলে আবার generate করতে পারবেন"
+          : message
+      );
     }
   };
 

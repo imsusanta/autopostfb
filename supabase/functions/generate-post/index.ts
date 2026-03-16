@@ -23,13 +23,12 @@ async function callAIWithRetry(body: object, apiKey: string, maxRetries = 3): Pr
     if (response.ok) return response;
 
     if (response.status === 429 && attempt < maxRetries - 1) {
-      const waitSec = Math.pow(2, attempt + 1) * 5; // 10s, 20s, 40s
+      const waitSec = Math.pow(2, attempt + 1) * 5;
       console.log(`Rate limited, waiting ${waitSec}s before retry ${attempt + 1}/${maxRetries}...`);
       await new Promise((r) => setTimeout(r, waitSec * 1000));
       continue;
     }
 
-    // Non-retryable error or final attempt
     return response;
   }
   throw new Error("Max retries exceeded");
@@ -46,25 +45,24 @@ serve(async (req) => {
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const isStory = aspectRatio === "9:16";
-    const size = isStory ? "1080x1920 (9:16 story)" : "1080x1080 (1:1 square feed)";
+    const size = isStory ? "1080x1920 (9:16 portrait)" : "1080x1080 (1:1 square)";
 
-    const imagePrompt = `Create a NEWS CARD style Bengali social media post image for ${platform || "Facebook and Instagram"}.
+    // Generate a topic-related SCENE image — NO text on image
+    const imagePrompt = `Generate a visually stunning, high-quality photograph or illustration related to the following topic for a social media post.
 
 Topic: ${topic}
+Context: ${caption}
 
-THE FOLLOWING BENGALI TEXT IS THE MAIN CONTENT — render it exactly as written in large, bold, clearly readable Bengali font:
-"${caption}"
-
-DESIGN STYLE — Professional News/Fact Card:
+REQUIREMENTS:
 - Size: ${size}
-- TOP SECTION: A bold headline bar with the topic category (e.g. "সাধারণ জ্ঞান", "তাজা খবর", "আশ্চর্যজনক তথ্য") in a colored banner/ribbon
-- MIDDLE (largest area): The Bengali text above displayed in large, bold, high-contrast typography — this is the main content, must be fully readable
-- LEFT or TOP-LEFT: A small relevant icon/illustration related to the topic (keep it subtle, don't overpower text)
-- BOTTOM: A thin branded footer bar with a subtle watermark area
-- BACKGROUND: ${contentType === "news" ? "Dark navy/deep blue gradient with red accent stripe, breaking news energy" : contentType === "gk" ? "Clean gradient from dark blue to teal, professional and educational feel" : contentType === "amazing" ? "Deep purple to dark blue gradient with subtle sparkle/star effects" : "Rich purple/gold gradient with quiz show energy"}
-- Overall style: Like a professional TV news channel info card or a viral Facebook fact page post
-- High contrast between text and background for maximum readability
-- Modern, clean, professional — suitable for ${platform}`;
+- Create a beautiful, vivid, photorealistic or high-quality illustrated scene directly related to the topic
+- DO NOT include any text, letters, words, numbers, watermarks, or typography on the image
+- DO NOT include any UI elements, borders, frames, or overlays
+- The image should be a pure visual scene/photograph that represents the topic
+- Use rich colors, dramatic lighting, and cinematic composition
+- Style: ${contentType === "news" ? "Photojournalistic, dramatic, high-impact visual" : contentType === "gk" ? "Educational, clean, detailed illustration or photograph" : contentType === "amazing" ? "Awe-inspiring, dramatic, wonder-evoking visual" : "Vibrant, engaging, thought-provoking visual"}
+- Make it eye-catching and suitable for ${platform || "social media"}
+- The image should work well as a background with text overlay at the bottom`;
 
     const response = await callAIWithRetry(
       {
@@ -95,14 +93,13 @@ DESIGN STYLE — Professional News/Fact Card:
 
     const data = await response.json();
     const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    const textContent = data.choices?.[0]?.message?.content || "";
 
     if (!imageUrl) {
       throw new Error("No image generated");
     }
 
     return new Response(
-      JSON.stringify({ success: true, imageUrl, description: textContent }),
+      JSON.stringify({ success: true, imageUrl }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {

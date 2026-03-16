@@ -76,9 +76,9 @@ export function InputPanel({
     for (let i = 0; i < newPosts.length; i++) {
       const post = newPosts[i];
       try {
-        // Wait 8 seconds between requests to avoid rate limiting (skip first)
+        // Wait 12 seconds between requests to avoid rate limiting (skip first)
         if (i > 0) {
-          await new Promise((resolve) => setTimeout(resolve, 8000));
+          await new Promise((resolve) => setTimeout(resolve, 12000));
         }
 
         const { data, error } = await supabase.functions.invoke("generate-post", {
@@ -91,10 +91,13 @@ export function InputPanel({
           },
         });
 
-        if (error) throw error;
+        if (error) {
+          // supabase SDK wraps non-2xx as FunctionsHttpError; extract body
+          const errMsg = typeof error === "object" && "message" in error ? error.message : String(error);
+          throw new Error(errMsg);
+        }
         if (data?.error) throw new Error(data.error);
 
-        // Update this specific post immediately when done
         setPosts((prev: GeneratedPost[]) =>
           prev.map((p) =>
             p.id === post.id
@@ -104,10 +107,11 @@ export function InputPanel({
         );
       } catch (err: any) {
         console.error(`Image gen failed for post ${i}:`, err);
-        // If rate limited, wait longer and retry once
-        if (err?.message?.includes("Rate limit") || err?.message?.includes("429")) {
-          toast.info(`Rate limit — ${15}s পর আবার চেষ্টা করছে...`);
-          await new Promise((resolve) => setTimeout(resolve, 15000));
+        const errMsg = err?.message || "";
+        
+        if (errMsg.includes("Rate limit") || errMsg.includes("429") || errMsg.includes("non-2xx")) {
+          toast.info(`⏳ পোস্ট ${i + 1}: Rate limit — 20s পর আবার চেষ্টা করছে...`);
+          await new Promise((resolve) => setTimeout(resolve, 20000));
           try {
             const { data, error } = await supabase.functions.invoke("generate-post", {
               body: {
@@ -132,11 +136,13 @@ export function InputPanel({
             // retry also failed
           }
         }
+        
         setPosts((prev: GeneratedPost[]) =>
           prev.map((p) =>
             p.id === post.id ? { ...p, isGenerating: false } : p
           )
         );
+        toast.error(`পোস্ট ${i + 1} তৈরি ব্যর্থ হয়েছে`);
       }
     }
 

@@ -22,21 +22,22 @@ serve(async (req) => {
     const imagePrompt = `Create a professional Bengali social media post image for ${platform || "Facebook and Instagram"}.
 
 Topic: ${topic}
-Content type: ${contentType === "news" ? "Breaking News" : contentType === "gk" ? "General Knowledge" : contentType === "amazing" ? "Amazing Facts" : "Quiz"}
-Caption/Text to include on the image (in Bengali): ${caption}
+Content type: ${contentType === "news" ? "Breaking News" : contentType === "gk" ? "General Knowledge Fact Card" : contentType === "amazing" ? "Amazing Facts" : "Quiz"}
+
+THE FOLLOWING BENGALI TEXT MUST BE THE MAIN VISUAL ELEMENT ON THE IMAGE — display it in large, bold, clearly readable Bengali typography as the centerpiece:
+"${caption}"
 
 Design requirements:
 - Size: ${size}
-- Bold, eye-catching design with vibrant colors
-- Bengali text prominently displayed (use large, clear Bengali typography)
-- Professional social media post layout
-- Include a relevant icon or illustration
+- The Bengali text above is the HERO ELEMENT — it must be large, centered, and fully readable
+- Clean infographic/fact card style layout
+- A relevant icon or small illustration related to the topic (NOT overpowering the text)
 - ${contentType === "news" ? "News channel style with urgent feel, red/blue tones" : ""}
-- ${contentType === "gk" ? "Educational feel with book/lightbulb motifs, blue/green tones" : ""}
+- ${contentType === "gk" ? "Educational fact card style, clean background with subtle gradient, blue/teal tones, lightbulb or book icon" : ""}
 - ${contentType === "amazing" ? "Wow factor, bright colors, star/explosion effects" : ""}
 - ${contentType === "quiz" ? "Quiz show style, question mark motifs, purple/gold tones" : ""}
-- Add a subtle watermark area at bottom
-- Clean, modern design suitable for ${platform}`;
+- Small branding/watermark area at bottom
+- Modern, professional social media card design suitable for ${platform}`;
 
     const response = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",

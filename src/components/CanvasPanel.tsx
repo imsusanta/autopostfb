@@ -224,15 +224,7 @@ export function CanvasPanel({
                     <p className="text-xs text-muted-foreground">তৈরি হচ্ছে...</p>
                   </div>
                 ) : post.imageUrl ? (
-                  <>
-                    <img src={post.imageUrl} alt="Generated post" className="w-full h-full object-cover" />
-                    {/* Black blur bar at bottom with Bengali text */}
-                    <div className="absolute bottom-0 left-0 right-0 backdrop-blur-md bg-black/60 px-3 py-3">
-                      <p className="text-white text-xs sm:text-sm font-semibold leading-relaxed drop-shadow-md">
-                        {post.caption}
-                      </p>
-                    </div>
-                  </>
+                  <img src={post.imageUrl} alt="Generated post" className="w-full h-full object-cover" />
                 ) : (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <p className="text-xs text-muted-foreground">ইমেজ তৈরি হয়নি</p>

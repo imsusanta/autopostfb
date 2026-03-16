@@ -6,16 +6,23 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-async function callAIWithRetry(body: object, apiKey: string, maxRetries = 3): Promise<Response> {
+function getCategoryLabel(contentType: string): string {
+  switch (contentType) {
+    case "news": return "BREAKING NEWS";
+    case "gk": return "GENERAL KNOWLEDGE";
+    case "amazing": return "AMAZING FACTS";
+    case "quiz": return "QUIZ TIME";
+    default: return "GENERAL KNOWLEDGE";
+  }
+}
+
+async function generateWithRetry(body: object, apiKey: string, maxRetries = 3): Promise<Response> {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const response = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
       {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       }
     );
@@ -34,16 +41,6 @@ async function callAIWithRetry(body: object, apiKey: string, maxRetries = 3): Pr
   throw new Error("Max retries exceeded");
 }
 
-function getCategoryLabel(contentType: string): string {
-  switch (contentType) {
-    case "news": return "BREAKING NEWS";
-    case "gk": return "GENERAL KNOWLEDGE";
-    case "amazing": return "AMAZING FACTS";
-    case "quiz": return "QUIZ TIME";
-    default: return "GENERAL KNOWLEDGE";
-  }
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -51,8 +48,13 @@ serve(async (req) => {
 
   try {
     const { topic, contentType, caption, platform, aspectRatio } = await req.json();
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
+
+    // Fallback: use Lovable gateway for image generation since direct Gemini image gen
+    // requires the Imagen API. We'll use the Lovable gateway with LOVABLE_API_KEY if available,
+    // otherwise try Gemini's native image generation.
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const isStory = aspectRatio === "9:16";
     const size = isStory ? "1080x1920 (9:16 portrait)" : "1080x1080 (1:1 square)";
@@ -86,13 +88,49 @@ CRITICAL RULES:
 - Overall professional quality suitable for ${platform || "Facebook and Instagram"}
 - Style reference: Professional educational/news content pages on Facebook/Instagram`;
 
-    const response = await callAIWithRetry(
+    // Try Lovable gateway first for image generation (supports image modality)
+    if (LOVABLE_API_KEY) {
+      const response = await fetch(
+        "https://ai.gateway.lovable.dev/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-3.1-flash-image-preview",
+            messages: [{ role: "user", content: imagePrompt }],
+            modalities: ["image", "text"],
+          }),
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+        if (imageUrl) {
+          return new Response(
+            JSON.stringify({ success: true, imageUrl }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      } else {
+        console.log("Lovable gateway failed, trying Gemini direct...", response.status);
+      }
+    }
+
+    // Fallback: Use Gemini API directly with Imagen model
+    const response = await generateWithRetry(
       {
-        model: "google/gemini-3.1-flash-image-preview",
-        messages: [{ role: "user", content: imagePrompt }],
-        modalities: ["image", "text"],
+        contents: [
+          { role: "user", parts: [{ text: imagePrompt }] },
+        ],
+        generationConfig: {
+          responseModalities: ["TEXT", "IMAGE"],
+        },
       },
-      LOVABLE_API_KEY
+      GEMINI_API_KEY
     );
 
     if (!response.ok) {
@@ -102,19 +140,25 @@ CRITICAL RULES:
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Credits exhausted. Please add credits." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
       const t = await response.text();
-      console.error("AI image error:", response.status, t);
+      console.error("Gemini image error:", response.status, t);
       throw new Error("Image generation failed");
     }
 
     const data = await response.json();
-    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+
+    // Extract inline image data from Gemini response
+    const parts = data.candidates?.[0]?.content?.parts || [];
+    let imageUrl = null;
+
+    for (const part of parts) {
+      if (part.inlineData) {
+        const mimeType = part.inlineData.mimeType || "image/png";
+        const base64Data = part.inlineData.data;
+        imageUrl = `data:${mimeType};base64,${base64Data}`;
+        break;
+      }
+    }
 
     if (!imageUrl) {
       throw new Error("No image generated");

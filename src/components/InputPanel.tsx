@@ -188,7 +188,15 @@ export function InputPanel({
       await generateImagesForFacts(facts, topic.trim(), contentType, platform, aspectRatio, []);
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || "কিছু একটা সমস্যা হয়েছে");
+      const message = err?.message || "কিছু একটা সমস্যা হয়েছে";
+      const isCreditsExhausted = message.includes("Credits exhausted") || message.includes("402");
+      toast.error(
+        isCreditsExhausted
+          ? "AI credits শেষ — নতুন credit add করলে আবার generate করতে পারবেন"
+          : message
+      );
+      setSearchResult(null);
+      setPosts([]);
       setIsSearching(false);
       setIsGeneratingAll(false);
     }

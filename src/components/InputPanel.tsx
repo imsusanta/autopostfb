@@ -220,21 +220,26 @@ export function InputPanel({
       if (searchError) {
         let errorBody = "";
         try {
-          // Try to read the actual error response body
           const ctx = (searchError as any)?.context;
           if (ctx && typeof ctx.json === "function") {
             const body = await ctx.json();
             errorBody = body?.error || "";
           }
-        } catch { /* ignore parse errors */ }
-        
+        } catch {
+          // ignore parse errors
+        }
+
         if (errorBody.includes("Credits exhausted") || errorBody.includes("402")) {
           throw new Error("CREDITS_EXHAUSTED");
+        }
+        if (errorBody.includes("Rate limit exceeded") || errorBody.includes("429")) {
+          throw new Error("RATE_LIMITED");
         }
         throw new Error(errorBody || searchError.message || "সার্ভার এরর");
       }
       if (searchData?.error) {
         if (searchData.error.includes("Credits exhausted")) throw new Error("CREDITS_EXHAUSTED");
+        if (searchData.error.includes("Rate limit exceeded")) throw new Error("RATE_LIMITED");
         throw new Error(searchData.error);
       }
 
@@ -256,8 +261,10 @@ export function InputPanel({
       const message = err?.message || "কিছু একটা সমস্যা হয়েছে";
       toast.error(
         message === "CREDITS_EXHAUSTED"
-          ? "⚠️ AI credits শেষ হয়ে গেছে। Lovable-এ credit add করে আবার চেষ্টা করুন।"
-          : message
+          ? "⚠️ AI credits শেষ হয়ে গেছে। Credit add করে আবার চেষ্টা করুন।"
+          : message === "RATE_LIMITED"
+            ? "⏳ এখন request limit এ পৌঁছে গেছে — একটু পরে আবার চেষ্টা করুন।"
+            : message
       );
       setSearchResult(null);
       setPosts([]);

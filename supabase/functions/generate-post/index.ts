@@ -34,6 +34,16 @@ async function callAIWithRetry(body: object, apiKey: string, maxRetries = 3): Pr
   throw new Error("Max retries exceeded");
 }
 
+function getCategoryLabel(contentType: string): string {
+  switch (contentType) {
+    case "news": return "BREAKING NEWS";
+    case "gk": return "GENERAL KNOWLEDGE";
+    case "amazing": return "AMAZING FACTS";
+    case "quiz": return "QUIZ TIME";
+    default: return "GENERAL KNOWLEDGE";
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -46,23 +56,35 @@ serve(async (req) => {
 
     const isStory = aspectRatio === "9:16";
     const size = isStory ? "1080x1920 (9:16 portrait)" : "1080x1080 (1:1 square)";
+    const categoryLabel = getCategoryLabel(contentType);
 
-    // Generate a topic-related SCENE image — NO text on image
-    const imagePrompt = `Generate a visually stunning, high-quality photograph or illustration related to the following topic for a social media post.
+    const imagePrompt = `Generate a professional social media post image with this EXACT layout. Size: ${size}
 
-Topic: ${topic}
-Context: ${caption}
+LAYOUT (top to bottom):
 
-REQUIREMENTS:
-- Size: ${size}
-- Create a beautiful, vivid, photorealistic or high-quality illustrated scene directly related to the topic
-- DO NOT include any text, letters, words, numbers, watermarks, or typography on the image
-- DO NOT include any UI elements, borders, frames, or overlays
-- The image should be a pure visual scene/photograph that represents the topic
-- Use rich colors, dramatic lighting, and cinematic composition
-- Style: ${contentType === "news" ? "Photojournalistic, dramatic, high-impact visual" : contentType === "gk" ? "Educational, clean, detailed illustration or photograph" : contentType === "amazing" ? "Awe-inspiring, dramatic, wonder-evoking visual" : "Vibrant, engaging, thought-provoking visual"}
-- Make it eye-catching and suitable for ${platform || "social media"}
-- The image should work well as a background with text overlay at the bottom`;
+1. BACKGROUND: A stunning, photorealistic, high-quality photograph or illustration directly related to "${topic}". The image should be vivid, cinematic, and visually striking. The scene should clearly represent the topic context: "${caption}"
+
+2. TOP-RIGHT CORNER: A rounded rectangle badge/pill with semi-transparent gray background containing a small book/chat icon and the text "PRACTICE Koro." in clean sans-serif font (white text, "Koro." in bold with a colored dot)
+
+3. BOTTOM HALF - GRADIENT OVERLAY: A smooth gradient from fully transparent at center to dark black/very dark at bottom, covering roughly the lower 40-45% of the image
+
+4. CATEGORY LABEL: Centered text "${categoryLabel}" in elegant, widely-spaced uppercase letters (tracking/letter-spacing wide), golden/amber color, with thin decorative horizontal lines on both sides. Position this above the main text.
+
+5. MAIN BENGALI TEXT: Below the category label, render this Bengali text in LARGE, BOLD, white font. This is the most important element — must be clearly readable:
+"${caption}"
+- Use a clean, bold sans-serif Bengali font
+- Center-aligned
+- Text should be large enough to read easily on mobile
+- High contrast white text against the dark gradient
+
+6. FOOTER: At the very bottom, a thin dark bar with small Bengali text in muted color: "মক টেস্ট দিয়ে নিজের প্রস্তুতি যাচাই করুন। সেরা প্র্যাকটিসের জন্য এখনই practicekoro.online ভিজিট করুন।"
+
+CRITICAL RULES:
+- The Bengali text MUST be rendered perfectly and be fully readable
+- The background image should be related to the topic
+- The gradient overlay must be smooth and natural
+- Overall professional quality suitable for ${platform || "Facebook and Instagram"}
+- Style reference: Professional educational/news content pages on Facebook/Instagram`;
 
     const response = await callAIWithRetry(
       {

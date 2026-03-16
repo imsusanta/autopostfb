@@ -59,6 +59,22 @@ export function CanvasPanel({
     toast.success(`${readyPosts.length}টি ইমেজ ডাউনলোড হচ্ছে!`);
   };
 
+  const getFunctionErrorMessage = async (error: unknown) => {
+    const fallback = error instanceof Error ? error.message : String(error || "Unknown error");
+
+    try {
+      const ctx = (error as any)?.context;
+      if (ctx && typeof ctx.json === "function") {
+        const body = await ctx.json();
+        return body?.error || fallback;
+      }
+    } catch {
+      // ignore response parse errors
+    }
+
+    return fallback;
+  };
+
   const handleMore = async () => {
     if (!lastTopic) return;
 
@@ -69,7 +85,10 @@ export function CanvasPanel({
         body: { topic: lastTopic, contentType: lastContentType },
       });
 
-      if (error) throw error;
+      if (error) {
+        const errMsg = await getFunctionErrorMessage(error);
+        throw new Error(errMsg.includes("Credits exhausted") ? "CREDITS_EXHAUSTED" : errMsg);
+      }
       if (searchData?.error) throw new Error(searchData.error);
 
       const facts = searchData.data?.facts || [];
@@ -84,6 +103,7 @@ export function CanvasPanel({
       }));
 
       setPosts((prev: GeneratedPost[]) => [...prev, ...newPosts]);
+      let stoppedDueToCredits = false;
 
       // Sequential generation with delay to avoid rate limits
       for (let i = 0; i < newPosts.length; i++) {
@@ -102,7 +122,10 @@ export function CanvasPanel({
             },
           });
 
-          if (imgErr) throw imgErr;
+          if (imgErr) {
+            const errMsg = await getFunctionErrorMessage(imgErr);
+            throw new Error(errMsg);
+          }
           if (data?.error) throw new Error(data.error);
 
           setPosts((prev: GeneratedPost[]) =>
@@ -115,14 +138,16 @@ export function CanvasPanel({
         } catch (err: any) {
           console.error(`More image gen failed for post ${i}:`, err);
           const errMsg = err?.message || "";
-          const isCreditsExhausted = errMsg.includes("Credits exhausted") || errMsg.includes("402");
+          const isCreditsExhausted = errMsg.includes("Credits exhausted") || errMsg.includes("402") || errMsg === "CREDITS_EXHAUSTED";
           if (isCreditsExhausted) {
+            stoppedDueToCredits = true;
+            const pendingIds = new Set(newPosts.slice(i).map((p) => p.id));
             setPosts((prev: GeneratedPost[]) =>
               prev.map((p) =>
-                p.id === post.id ? { ...p, isGenerating: false } : p
+                pendingIds.has(p.id) ? { ...p, isGenerating: false } : p
               )
             );
-            toast.error("AI credits শেষ — নতুন credit add করলে আবার generate করতে পারবেন");
+            toast.error("AI credits শেষ — credit add করলে আবার generate করতে পারবেন");
             break;
           }
           if (errMsg.includes("Rate limit") || errMsg.includes("429") || errMsg.includes("non-2xx")) {
@@ -138,6 +163,20 @@ export function CanvasPanel({
                   aspectRatio,
                 },
               });
+              if (retryErr) {
+                const retryErrMsg = await getFunctionErrorMessage(retryErr);
+                if (retryErrMsg.includes("Credits exhausted") || retryErrMsg.includes("402")) {
+                  stoppedDueToCredits = true;
+                  const pendingIds = new Set(newPosts.slice(i).map((p) => p.id));
+                  setPosts((prev: GeneratedPost[]) =>
+                    prev.map((p) =>
+                      pendingIds.has(p.id) ? { ...p, isGenerating: false } : p
+                    )
+                  );
+                  toast.error("AI credits শেষ — credit add করলে আবার generate করতে পারবেন");
+                  break;
+                }
+              }
               if (!retryErr && !data?.error) {
                 setPosts((prev: GeneratedPost[]) =>
                   prev.map((p) =>
@@ -160,13 +199,14 @@ export function CanvasPanel({
         }
       }
 
-      toast.success("আরও পোস্ট তৈরি হয়েছে!");
+      if (!stoppedDueToCredits) {
+        toast.success("আরও পোস্ট তৈরি হয়েছে!");
+      }
     } catch (err: any) {
       const message = err?.message || "সমস্যা হয়েছে";
-      const isCreditsExhausted = message.includes("Credits exhausted") || message.includes("402");
       toast.error(
-        isCreditsExhausted
-          ? "AI credits শেষ — নতুন credit add করলে আবার generate করতে পারবেন"
+        message === "CREDITS_EXHAUSTED"
+          ? "AI credits শেষ — credit add করলে আবার generate করতে পারবেন"
           : message
       );
     }

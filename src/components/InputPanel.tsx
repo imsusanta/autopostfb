@@ -52,6 +52,22 @@ export function InputPanel({
   const [contentType, setContentType] = useState<ContentType>("gk");
   const [platform, setPlatform] = useState<Platform>("both");
 
+  const getFunctionErrorMessage = async (error: unknown) => {
+    const fallback = error instanceof Error ? error.message : String(error || "Unknown error");
+
+    try {
+      const ctx = (error as any)?.context;
+      if (ctx && typeof ctx.json === "function") {
+        const body = await ctx.json();
+        return body?.error || fallback;
+      }
+    } catch {
+      // ignore response parse errors
+    }
+
+    return fallback;
+  };
+
   const generateImagesForFacts = async (
     facts: { fact: string }[],
     topicStr: string,
@@ -71,6 +87,7 @@ export function InputPanel({
     setIsGeneratingAll(true);
 
     const platStr = plat === "both" ? "Facebook and Instagram" : plat;
+    let stoppedDueToCredits = false;
 
     // Generate images sequentially with delay to avoid rate limits
     for (let i = 0; i < newPosts.length; i++) {
@@ -92,8 +109,7 @@ export function InputPanel({
         });
 
         if (error) {
-          // supabase SDK wraps non-2xx as FunctionsHttpError; extract body
-          const errMsg = typeof error === "object" && "message" in error ? error.message : String(error);
+          const errMsg = await getFunctionErrorMessage(error);
           throw new Error(errMsg);
         }
         if (data?.error) throw new Error(data.error);
@@ -108,7 +124,20 @@ export function InputPanel({
       } catch (err: any) {
         console.error(`Image gen failed for post ${i}:`, err);
         const errMsg = err?.message || "";
-        
+        const isCreditsExhausted = errMsg.includes("Credits exhausted") || errMsg.includes("402");
+
+        if (isCreditsExhausted) {
+          stoppedDueToCredits = true;
+          const pendingIds = new Set(newPosts.slice(i).map((p) => p.id));
+          setPosts((prev: GeneratedPost[]) =>
+            prev.map((p) =>
+              pendingIds.has(p.id) ? { ...p, isGenerating: false } : p
+            )
+          );
+          toast.error("AI credits শেষ — credit add করলে আবার generate করতে পারবেন");
+          break;
+        }
+
         if (errMsg.includes("Rate limit") || errMsg.includes("429") || errMsg.includes("non-2xx")) {
           toast.info(`⏳ পোস্ট ${i + 1}: Rate limit — 20s পর আবার চেষ্টা করছে...`);
           await new Promise((resolve) => setTimeout(resolve, 20000));
@@ -122,7 +151,22 @@ export function InputPanel({
                 aspectRatio: ar,
               },
             });
-            if (!error && !data?.error) {
+            if (error) {
+              const retryErrMsg = await getFunctionErrorMessage(error);
+              if (retryErrMsg.includes("Credits exhausted") || retryErrMsg.includes("402")) {
+                stoppedDueToCredits = true;
+                const pendingIds = new Set(newPosts.slice(i).map((p) => p.id));
+                setPosts((prev: GeneratedPost[]) =>
+                  prev.map((p) =>
+                    pendingIds.has(p.id) ? { ...p, isGenerating: false } : p
+                  )
+                );
+                toast.error("AI credits শেষ — credit add করলে আবার generate করতে পারবেন");
+                break;
+              }
+              throw new Error(retryErrMsg);
+            }
+            if (!data?.error) {
               setPosts((prev: GeneratedPost[]) =>
                 prev.map((p) =>
                   p.id === post.id
@@ -136,7 +180,7 @@ export function InputPanel({
             // retry also failed
           }
         }
-        
+
         setPosts((prev: GeneratedPost[]) =>
           prev.map((p) =>
             p.id === post.id ? { ...p, isGenerating: false } : p
@@ -147,7 +191,9 @@ export function InputPanel({
     }
 
     setIsGeneratingAll(false);
-    toast.success("পোস্ট তৈরি হয়েছে!");
+    if (!stoppedDueToCredits) {
+      toast.success("পোস্ট তৈরি হয়েছে!");
+    }
   };
 
   const handleGenerate = async () => {

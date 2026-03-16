@@ -264,12 +264,29 @@ export function CanvasPanel({
               </div>
 
               {/* Actions */}
-              <div className="p-2.5 flex gap-2">
+              <div className="p-2.5 flex gap-2 flex-wrap">
                 {post.imageUrl && (
-                  <Button size="sm" variant="outline" className="text-xs gap-1 rounded-lg flex-1" onClick={() => handleDownload(post)}>
-                    <Download className="h-3 w-3" />
-                    ডাউনলোড
-                  </Button>
+                  <>
+                    <Button size="sm" variant="outline" className="text-xs gap-1 rounded-lg flex-1" onClick={() => handleDownload(post)}>
+                      <Download className="h-3 w-3" />
+                      ডাউনলোড
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={publishedIds.has(post.id) ? "secondary" : "default"}
+                      className="text-xs gap-1 rounded-lg flex-1"
+                      onClick={() => handlePublishToFacebook(post)}
+                      disabled={publishingIds.has(post.id) || publishedIds.has(post.id)}
+                    >
+                      {publishingIds.has(post.id) ? (
+                        <><Loader2 className="h-3 w-3 animate-spin" /> পাবলিশ হচ্ছে...</>
+                      ) : publishedIds.has(post.id) ? (
+                        <>✅ পাবলিশ হয়েছে</>
+                      ) : (
+                        <><Send className="h-3 w-3" /> Facebook</>
+                      )}
+                    </Button>
+                  </>
                 )}
                 <Button size="sm" variant="ghost" className="text-xs gap-1 rounded-lg" onClick={() => handleCopyCaption(post.caption)}>
                   <Copy className="h-3 w-3" />

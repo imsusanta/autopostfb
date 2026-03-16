@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sparkles, Newspaper, Brain, HelpCircle, ArrowRight, Loader2, ExternalLink } from "lucide-react";
+import { Sparkles, Newspaper, Brain, HelpCircle, ArrowRight, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import type { ContentType, Platform, AspectRatio, SearchResult } from "@/pages/Index";
+import type { ContentType, Platform, AspectRatio, SearchResult, GeneratedPost } from "@/pages/Index";
 
 const contentTypes: { value: ContentType; label: string; icon: React.ReactNode }[] = [
   { value: "gk", label: "সাধারণ জ্ঞান", icon: <Brain className="h-4 w-4" /> },
@@ -22,31 +22,101 @@ const platforms: { value: Platform; label: string }[] = [
 interface InputPanelProps {
   isSearching: boolean;
   setIsSearching: (v: boolean) => void;
-  isGenerating: boolean;
-  setIsGenerating: (v: boolean) => void;
+  isGeneratingAll: boolean;
+  setIsGeneratingAll: (v: boolean) => void;
   searchResult: SearchResult | null;
   setSearchResult: (v: SearchResult | null) => void;
-  caption: string;
-  setCaption: (v: string) => void;
-  setImageUrl: (v: string | null) => void;
+  posts: GeneratedPost[];
+  setPosts: (v: GeneratedPost[] | ((prev: GeneratedPost[]) => GeneratedPost[])) => void;
   aspectRatio: AspectRatio;
+  setLastTopic: (v: string) => void;
+  setLastContentType: (v: ContentType) => void;
+  setLastPlatform: (v: Platform) => void;
 }
 
 export function InputPanel({
   isSearching,
   setIsSearching,
-  isGenerating,
-  setIsGenerating,
+  isGeneratingAll,
+  setIsGeneratingAll,
   searchResult,
   setSearchResult,
-  caption,
-  setCaption,
-  setImageUrl,
+  posts,
+  setPosts,
   aspectRatio,
+  setLastTopic,
+  setLastContentType,
+  setLastPlatform,
 }: InputPanelProps) {
   const [topic, setTopic] = useState("");
   const [contentType, setContentType] = useState<ContentType>("gk");
   const [platform, setPlatform] = useState<Platform>("both");
+
+  const generateImagesForFacts = async (
+    facts: { fact: string }[],
+    topicStr: string,
+    ct: ContentType,
+    plat: Platform,
+    ar: AspectRatio,
+    existingPosts: GeneratedPost[]
+  ) => {
+    const newPosts: GeneratedPost[] = facts.map((f, i) => ({
+      id: `${Date.now()}-${i}`,
+      caption: f.fact,
+      imageUrl: null,
+      isGenerating: true,
+    }));
+
+    setPosts([...existingPosts, ...newPosts]);
+    setIsGeneratingAll(true);
+
+    const platStr = plat === "both" ? "Facebook and Instagram" : plat;
+
+    // Generate images in parallel (max 5 at a time)
+    const results = await Promise.allSettled(
+      newPosts.map(async (post, i) => {
+        try {
+          const { data, error } = await supabase.functions.invoke("generate-post", {
+            body: {
+              topic: topicStr,
+              contentType: ct,
+              caption: facts[i].fact,
+              platform: platStr,
+              aspectRatio: ar,
+            },
+          });
+
+          if (error) throw error;
+          if (data?.error) throw new Error(data.error);
+
+          return { id: post.id, imageUrl: data?.imageUrl || null };
+        } catch (err) {
+          console.error(`Image gen failed for post ${i}:`, err);
+          return { id: post.id, imageUrl: null };
+        }
+      })
+    );
+
+    // Update posts with generated images
+    setPosts((prev: GeneratedPost[]) =>
+      prev.map((p) => {
+        const result = results.find((r) => {
+          if (r.status === "fulfilled") return r.value.id === p.id;
+          return false;
+        });
+        if (result?.status === "fulfilled") {
+          return { ...p, imageUrl: result.value.imageUrl, isGenerating: false };
+        }
+        if (newPosts.some((np) => np.id === p.id)) {
+          return { ...p, isGenerating: false };
+        }
+        return p;
+      })
+    );
+
+    setIsGeneratingAll(false);
+    toast.success("৫টি পোস্ট তৈরি হয়েছে!");
+  };
 
   const handleGenerate = async () => {
     if (!topic.trim()) {
@@ -54,10 +124,14 @@ export function InputPanel({
       return;
     }
 
+    setLastTopic(topic.trim());
+    setLastContentType(contentType);
+    setLastPlatform(platform);
+
     // Step 1: Search/Research
     setIsSearching(true);
     setSearchResult(null);
-    setImageUrl(null);
+    setPosts([]);
 
     try {
       const { data: searchData, error: searchError } = await supabase.functions.invoke("search-news", {
@@ -69,41 +143,26 @@ export function InputPanel({
 
       const result = searchData.data as SearchResult;
       setSearchResult(result);
-      setCaption(result.synthesized || "");
-
-      // Step 2: Generate image
       setIsSearching(false);
-      setIsGenerating(true);
 
-      const { data: imageData, error: imageError } = await supabase.functions.invoke("generate-post", {
-        body: {
-          topic: topic.trim(),
-          contentType,
-          caption: result.synthesized || topic,
-          platform: platform === "both" ? "Facebook and Instagram" : platform,
-          aspectRatio,
-        },
-      });
+      // Get facts array
+      const facts = result.facts || result.quizzes?.map((q) => ({ fact: `${q.question}\n\nA) ${q.options[0]}\nB) ${q.options[1]}\nC) ${q.options[2]}\nD) ${q.options[3]}` })) || [];
 
-      if (imageError) throw imageError;
-      if (imageData?.error) throw new Error(imageData.error);
-
-      if (imageData?.imageUrl) {
-        setImageUrl(imageData.imageUrl);
-        toast.success("পোস্ট তৈরি হয়েছে!");
-      } else {
-        throw new Error("ইমেজ তৈরি হয়নি");
+      if (facts.length === 0) {
+        throw new Error("কোনো তথ্য পাওয়া যায়নি");
       }
+
+      // Step 2: Generate images for all facts
+      await generateImagesForFacts(facts, topic.trim(), contentType, platform, aspectRatio, []);
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "কিছু একটা সমস্যা হয়েছে");
-    } finally {
       setIsSearching(false);
-      setIsGenerating(false);
+      setIsGeneratingAll(false);
     }
   };
 
-  const busy = isSearching || isGenerating;
+  const busy = isSearching || isGeneratingAll;
 
   return (
     <div className="flex flex-col h-full">
@@ -186,67 +245,39 @@ export function InputPanel({
               <Loader2 className="h-5 w-5 animate-spin" />
               তথ্য খুঁজছে...
             </>
-          ) : isGenerating ? (
+          ) : isGeneratingAll ? (
             <>
               <Loader2 className="h-5 w-5 animate-spin" />
-              ইমেজ তৈরি হচ্ছে...
+              ৫টি ইমেজ তৈরি হচ্ছে...
             </>
           ) : (
             <>
-              পোস্ট তৈরি করো
+              ৫টি পোস্ট তৈরি করো
               <ArrowRight className="h-5 w-5" />
             </>
           )}
         </Button>
 
-        {/* Search progress indicator */}
+        {/* Search progress */}
         {isSearching && (
           <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/10">
             <div className="h-2 w-2 rounded-full bg-primary animate-pulse-glow" />
-            <span className="text-sm text-primary font-medium">ওয়েব সার্চ চলছে...</span>
+            <span className="text-sm text-primary font-medium">তথ্য সংগ্রহ করছে...</span>
           </div>
         )}
 
-        {/* Search Results */}
-        {searchResult && (
-          <div className="space-y-3 pt-2">
+        {/* Facts list */}
+        {searchResult?.facts && (
+          <div className="space-y-2 pt-2">
             <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-accent" />
-              তথ্যসূত্র
+              তথ্যসূত্র ({searchResult.facts.length}টি)
             </h3>
-
-            {searchResult.headlines?.map((h, i) => (
-              <div key={i} className="p-3 rounded-xl bg-card border border-border space-y-1">
-                <p className="text-sm font-semibold text-foreground">{h.title}</p>
-                <p className="text-xs text-muted-foreground leading-relaxed">{h.summary}</p>
-                <p className="text-xs text-primary flex items-center gap-1">
-                  <ExternalLink className="h-3 w-3" />
-                  {h.source}
-                </p>
-              </div>
-            ))}
-
-            {searchResult.facts?.map((f, i) => (
+            {searchResult.facts.map((f, i) => (
               <div key={i} className="p-3 rounded-xl bg-card border border-border">
-                <p className="text-sm text-foreground">{f.fact}</p>
+                <p className="text-xs text-muted-foreground">{i + 1}. {f.fact}</p>
               </div>
             ))}
-
-            {searchResult.question && (
-              <div className="p-3 rounded-xl bg-card border border-border space-y-2">
-                <p className="text-sm font-semibold text-foreground">{searchResult.question}</p>
-                <div className="space-y-1">
-                  {searchResult.options?.map((opt, i) => (
-                    <p key={i} className="text-xs text-muted-foreground">
-                      {String.fromCharCode(65 + i)}. {opt}
-                    </p>
-                  ))}
-                </div>
-                <p className="text-xs text-primary font-medium">
-                  উত্তর: {searchResult.answer}
-                </p>
-              </div>
-            )}
           </div>
         )}
       </div>

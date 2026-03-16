@@ -18,17 +18,17 @@ serve(async (req) => {
 
     let systemPrompt = "";
     if (contentType === "news") {
-      systemPrompt = `You are a Bengali news researcher. Given a topic, provide the latest news information (as if from the last 24 hours) in Bengali. Include 3 key headlines/facts with brief descriptions. Format as JSON with this structure:
-      {"headlines": [{"title": "headline in Bengali", "summary": "2-3 sentence summary in Bengali", "source": "probable source name"}], "synthesized": "A comprehensive 3-4 sentence summary in Bengali combining all findings"}`;
+      systemPrompt = `You are a Bengali news researcher. Given a topic, provide 5 different latest news headlines/facts (as if from the last 24 hours) in Bengali. Each should be a complete, informative sentence suitable for a social media image post. Format as JSON:
+      {"facts": [{"fact": "news fact 1 in Bengali"}, {"fact": "news fact 2 in Bengali"}, {"fact": "news fact 3 in Bengali"}, {"fact": "news fact 4 in Bengali"}, {"fact": "news fact 5 in Bengali"}]}`;
     } else if (contentType === "gk") {
-      systemPrompt = `You are a Bengali general knowledge expert. Given a topic, provide exactly ONE specific, compelling, informative fact in Bengali. The fact should be a single complete sentence (2-3 lines max) that would work as the main text on a social media infographic card. Format as JSON:
-      {"facts": [{"fact": "the single fact in Bengali"}], "synthesized": "the same single fact sentence in Bengali"}`;
+      systemPrompt = `You are a Bengali general knowledge expert. Given a topic, provide exactly 5 different specific, compelling, informative facts in Bengali. Each fact should be a single complete sentence (2-3 lines max) that would work as the main text on a social media infographic card. Each fact must be unique and cover a different aspect of the topic. Format as JSON:
+      {"facts": [{"fact": "fact 1 in Bengali"}, {"fact": "fact 2 in Bengali"}, {"fact": "fact 3 in Bengali"}, {"fact": "fact 4 in Bengali"}, {"fact": "fact 5 in Bengali"}]}`;
     } else if (contentType === "amazing") {
-      systemPrompt = `You are a Bengali content creator specializing in amazing facts. Given a topic, provide 3 mind-blowing facts in Bengali. Format as JSON:
-      {"facts": [{"fact": "amazing fact in Bengali"}], "synthesized": "An engaging paragraph in Bengali about these amazing facts, suitable for viral social media"}`;
+      systemPrompt = `You are a Bengali content creator specializing in amazing facts. Given a topic, provide 5 different mind-blowing facts in Bengali. Each should be a complete sentence suitable for a social media image post. Format as JSON:
+      {"facts": [{"fact": "amazing fact 1 in Bengali"}, {"fact": "amazing fact 2 in Bengali"}, {"fact": "amazing fact 3 in Bengali"}, {"fact": "amazing fact 4 in Bengali"}, {"fact": "amazing fact 5 in Bengali"}]}`;
     } else if (contentType === "quiz") {
-      systemPrompt = `You are a Bengali quiz maker. Given a topic, create a compelling quiz question with 4 options in Bengali. Format as JSON:
-      {"question": "quiz question in Bengali", "options": ["option A", "option B", "option C", "option D"], "answer": "correct option", "explanation": "brief explanation in Bengali", "synthesized": "The quiz question formatted as an engaging social media post in Bengali"}`;
+      systemPrompt = `You are a Bengali quiz maker. Given a topic, create 5 different compelling quiz questions with 4 options each in Bengali. Format as JSON:
+      {"quizzes": [{"question": "quiz question in Bengali", "options": ["A", "B", "C", "D"], "answer": "correct option", "explanation": "brief explanation in Bengali"}]}`;
     }
 
     const response = await fetch(
@@ -43,10 +43,7 @@ serve(async (req) => {
           model: "google/gemini-2.5-flash",
           messages: [
             { role: "system", content: systemPrompt },
-            {
-              role: "user",
-              content: `Topic: ${topic}`,
-            },
+            { role: "user", content: `Topic: ${topic}` },
           ],
         }),
       }
@@ -73,13 +70,12 @@ serve(async (req) => {
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || "";
 
-    // Try to parse JSON from the response
     let parsed;
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
-      parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : { synthesized: content };
+      parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : { facts: [{ fact: content }] };
     } catch {
-      parsed = { synthesized: content };
+      parsed = { facts: [{ fact: content }] };
     }
 
     return new Response(JSON.stringify({ success: true, data: parsed }), {

@@ -7,22 +7,26 @@ export type Platform = "both" | "facebook" | "instagram";
 export type AspectRatio = "1:1" | "9:16";
 
 export interface SearchResult {
-  headlines?: { title: string; summary: string; source: string }[];
   facts?: { fact: string }[];
-  question?: string;
-  options?: string[];
-  answer?: string;
-  explanation?: string;
-  synthesized: string;
+  quizzes?: { question: string; options: string[]; answer: string; explanation: string }[];
+}
+
+export interface GeneratedPost {
+  id: string;
+  caption: string;
+  imageUrl: string | null;
+  isGenerating: boolean;
 }
 
 const Index = () => {
   const [isSearching, setIsSearching] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingAll, setIsGeneratingAll] = useState(false);
   const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
-  const [caption, setCaption] = useState("");
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [posts, setPosts] = useState<GeneratedPost[]>([]);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("1:1");
+  const [lastTopic, setLastTopic] = useState("");
+  const [lastContentType, setLastContentType] = useState<ContentType>("gk");
+  const [lastPlatform, setLastPlatform] = useState<Platform>("both");
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -31,26 +35,31 @@ const Index = () => {
         <InputPanel
           isSearching={isSearching}
           setIsSearching={setIsSearching}
-          isGenerating={isGenerating}
-          setIsGenerating={setIsGenerating}
+          isGeneratingAll={isGeneratingAll}
+          setIsGeneratingAll={setIsGeneratingAll}
           searchResult={searchResult}
           setSearchResult={setSearchResult}
-          caption={caption}
-          setCaption={setCaption}
-          setImageUrl={setImageUrl}
+          posts={posts}
+          setPosts={setPosts}
           aspectRatio={aspectRatio}
+          setLastTopic={setLastTopic}
+          setLastContentType={setLastContentType}
+          setLastPlatform={setLastPlatform}
         />
       </div>
 
       {/* Right Panel */}
       <div className="flex-1 bg-canvas flex flex-col overflow-y-auto">
         <CanvasPanel
-          imageUrl={imageUrl}
-          caption={caption}
-          setCaption={setCaption}
+          posts={posts}
+          setPosts={setPosts}
           aspectRatio={aspectRatio}
           setAspectRatio={setAspectRatio}
-          isGenerating={isGenerating}
+          isSearching={isSearching}
+          isGeneratingAll={isGeneratingAll}
+          lastTopic={lastTopic}
+          lastContentType={lastContentType}
+          lastPlatform={lastPlatform}
         />
       </div>
     </div>

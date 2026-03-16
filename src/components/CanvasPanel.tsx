@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, Copy, Square, Smartphone, Loader2, ImageIcon, Plus } from "lucide-react";
+import { Download, Copy, Square, Smartphone, Loader2, ImageIcon, Plus, Send } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { AspectRatio, GeneratedPost, ContentType, Platform } from "@/pages/Index";

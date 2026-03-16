@@ -19,25 +19,23 @@ serve(async (req) => {
     const isStory = aspectRatio === "9:16";
     const size = isStory ? "1080x1920 (9:16 story)" : "1080x1080 (1:1 square feed)";
 
-    const imagePrompt = `Create a professional Bengali social media post image for ${platform || "Facebook and Instagram"}.
+    const imagePrompt = `Create a NEWS CARD style Bengali social media post image for ${platform || "Facebook and Instagram"}.
 
 Topic: ${topic}
-Content type: ${contentType === "news" ? "Breaking News" : contentType === "gk" ? "General Knowledge Fact Card" : contentType === "amazing" ? "Amazing Facts" : "Quiz"}
 
-THE FOLLOWING BENGALI TEXT MUST BE THE MAIN VISUAL ELEMENT ON THE IMAGE — display it in large, bold, clearly readable Bengali typography as the centerpiece:
+THE FOLLOWING BENGALI TEXT IS THE MAIN CONTENT — render it exactly as written in large, bold, clearly readable Bengali font:
 "${caption}"
 
-Design requirements:
+DESIGN STYLE — Professional News/Fact Card:
 - Size: ${size}
-- The Bengali text above is the HERO ELEMENT — it must be large, centered, and fully readable
-- Clean infographic/fact card style layout
-- A relevant icon or small illustration related to the topic (NOT overpowering the text)
-- ${contentType === "news" ? "News channel style with urgent feel, red/blue tones" : ""}
-- ${contentType === "gk" ? "Educational fact card style, clean background with subtle gradient, blue/teal tones, lightbulb or book icon" : ""}
-- ${contentType === "amazing" ? "Wow factor, bright colors, star/explosion effects" : ""}
-- ${contentType === "quiz" ? "Quiz show style, question mark motifs, purple/gold tones" : ""}
-- Small branding/watermark area at bottom
-- Modern, professional social media card design suitable for ${platform}`;
+- TOP SECTION: A bold headline bar with the topic category (e.g. "সাধারণ জ্ঞান", "তাজা খবর", "আশ্চর্যজনক তথ্য") in a colored banner/ribbon
+- MIDDLE (largest area): The Bengali text above displayed in large, bold, high-contrast typography — this is the main content, must be fully readable
+- LEFT or TOP-LEFT: A small relevant icon/illustration related to the topic (keep it subtle, don't overpower text)
+- BOTTOM: A thin branded footer bar with a subtle watermark area
+- BACKGROUND: ${contentType === "news" ? "Dark navy/deep blue gradient with red accent stripe, breaking news energy" : contentType === "gk" ? "Clean gradient from dark blue to teal, professional and educational feel" : contentType === "amazing" ? "Deep purple to dark blue gradient with subtle sparkle/star effects" : "Rich purple/gold gradient with quiz show energy"}
+- Overall style: Like a professional TV news channel info card or a viral Facebook fact page post
+- High contrast between text and background for maximum readability
+- Modern, clean, professional — suitable for ${platform}`;
 
     const response = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",

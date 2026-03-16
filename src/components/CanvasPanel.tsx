@@ -156,6 +156,36 @@ export function CanvasPanel({
     }
   };
 
+  const [publishingIds, setPublishingIds] = useState<Set<string>>(new Set());
+  const [publishedIds, setPublishedIds] = useState<Set<string>>(new Set());
+
+  const handlePublishToFacebook = async (post: GeneratedPost) => {
+    if (!post.imageUrl) return;
+
+    setPublishingIds((prev) => new Set(prev).add(post.id));
+
+    try {
+      const { data, error } = await supabase.functions.invoke("publish-facebook", {
+        body: { imageUrl: post.imageUrl, caption: post.caption },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setPublishedIds((prev) => new Set(prev).add(post.id));
+      toast.success("✅ Facebook-এ পাবলিশ হয়েছে!");
+    } catch (err: any) {
+      console.error("Facebook publish error:", err);
+      toast.error(err?.message || "Facebook-এ পাবলিশ ব্যর্থ হয়েছে");
+    } finally {
+      setPublishingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(post.id);
+        return next;
+      });
+    }
+  };
+
   const hasAnyImages = posts.some((p) => p.imageUrl);
   const isAnyGenerating = posts.some((p) => p.isGenerating);
 

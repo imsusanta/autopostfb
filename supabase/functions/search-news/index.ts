@@ -21,8 +21,8 @@ serve(async (req) => {
       systemPrompt = `You are a Bengali news researcher. Given a topic, provide the latest news information (as if from the last 24 hours) in Bengali. Include 3 key headlines/facts with brief descriptions. Format as JSON with this structure:
       {"headlines": [{"title": "headline in Bengali", "summary": "2-3 sentence summary in Bengali", "source": "probable source name"}], "synthesized": "A comprehensive 3-4 sentence summary in Bengali combining all findings"}`;
     } else if (contentType === "gk") {
-      systemPrompt = `You are a Bengali general knowledge expert. Given a topic, provide 3-4 interesting facts in Bengali suitable for social media posts. Format as JSON:
-      {"facts": [{"fact": "interesting fact in Bengali"}], "synthesized": "A compelling summary paragraph in Bengali for a social media post"}`;
+      systemPrompt = `You are a Bengali general knowledge expert. Given a topic, provide exactly ONE specific, compelling, informative fact in Bengali. The fact should be a single complete sentence (2-3 lines max) that would work as the main text on a social media infographic card. Format as JSON:
+      {"facts": [{"fact": "the single fact in Bengali"}], "synthesized": "the same single fact sentence in Bengali"}`;
     } else if (contentType === "amazing") {
       systemPrompt = `You are a Bengali content creator specializing in amazing facts. Given a topic, provide 3 mind-blowing facts in Bengali. Format as JSON:
       {"facts": [{"fact": "amazing fact in Bengali"}], "synthesized": "An engaging paragraph in Bengali about these amazing facts, suitable for viral social media"}`;

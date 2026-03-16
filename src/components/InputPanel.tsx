@@ -72,50 +72,76 @@ export function InputPanel({
 
     const platStr = plat === "both" ? "Facebook and Instagram" : plat;
 
-    // Generate images in parallel (max 5 at a time)
-    const results = await Promise.allSettled(
-      newPosts.map(async (post, i) => {
-        try {
-          const { data, error } = await supabase.functions.invoke("generate-post", {
-            body: {
-              topic: topicStr,
-              contentType: ct,
-              caption: facts[i].fact,
-              platform: platStr,
-              aspectRatio: ar,
-            },
-          });
-
-          if (error) throw error;
-          if (data?.error) throw new Error(data.error);
-
-          return { id: post.id, imageUrl: data?.imageUrl || null };
-        } catch (err) {
-          console.error(`Image gen failed for post ${i}:`, err);
-          return { id: post.id, imageUrl: null };
+    // Generate images sequentially with delay to avoid rate limits
+    for (let i = 0; i < newPosts.length; i++) {
+      const post = newPosts[i];
+      try {
+        // Wait 8 seconds between requests to avoid rate limiting (skip first)
+        if (i > 0) {
+          await new Promise((resolve) => setTimeout(resolve, 8000));
         }
-      })
-    );
 
-    // Update posts with generated images
-    setPosts((prev: GeneratedPost[]) =>
-      prev.map((p) => {
-        const result = results.find((r) => {
-          if (r.status === "fulfilled") return r.value.id === p.id;
-          return false;
+        const { data, error } = await supabase.functions.invoke("generate-post", {
+          body: {
+            topic: topicStr,
+            contentType: ct,
+            caption: facts[i].fact,
+            platform: platStr,
+            aspectRatio: ar,
+          },
         });
-        if (result?.status === "fulfilled") {
-          return { ...p, imageUrl: result.value.imageUrl, isGenerating: false };
+
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+
+        // Update this specific post immediately when done
+        setPosts((prev: GeneratedPost[]) =>
+          prev.map((p) =>
+            p.id === post.id
+              ? { ...p, imageUrl: data?.imageUrl || null, isGenerating: false }
+              : p
+          )
+        );
+      } catch (err: any) {
+        console.error(`Image gen failed for post ${i}:`, err);
+        // If rate limited, wait longer and retry once
+        if (err?.message?.includes("Rate limit") || err?.message?.includes("429")) {
+          toast.info(`Rate limit — ${15}s পর আবার চেষ্টা করছে...`);
+          await new Promise((resolve) => setTimeout(resolve, 15000));
+          try {
+            const { data, error } = await supabase.functions.invoke("generate-post", {
+              body: {
+                topic: topicStr,
+                contentType: ct,
+                caption: facts[i].fact,
+                platform: platStr,
+                aspectRatio: ar,
+              },
+            });
+            if (!error && !data?.error) {
+              setPosts((prev: GeneratedPost[]) =>
+                prev.map((p) =>
+                  p.id === post.id
+                    ? { ...p, imageUrl: data?.imageUrl || null, isGenerating: false }
+                    : p
+                )
+              );
+              continue;
+            }
+          } catch {
+            // retry also failed
+          }
         }
-        if (newPosts.some((np) => np.id === p.id)) {
-          return { ...p, isGenerating: false };
-        }
-        return p;
-      })
-    );
+        setPosts((prev: GeneratedPost[]) =>
+          prev.map((p) =>
+            p.id === post.id ? { ...p, isGenerating: false } : p
+          )
+        );
+      }
+    }
 
     setIsGeneratingAll(false);
-    toast.success("৫টি পোস্ট তৈরি হয়েছে!");
+    toast.success("পোস্ট তৈরি হয়েছে!");
   };
 
   const handleGenerate = async () => {

@@ -1,10 +1,1 @@
-project_id = "kgikpfgzcxhynqokwbpp"
-
-[functions.search-news]
-verify_jwt = false
-
-[functions.generate-post]
-verify_jwt = false
-
-[functions.publish-facebook]
-verify_jwt = false
+project_id = "oijavmvzhkjismzhcfcg"

@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, Copy, Square, Smartphone, Loader2, ImageIcon, Plus } from "lucide-react";
+import { Download, Copy, Square, Smartphone, Loader2, ImageIcon, Plus, Send } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { AspectRatio, GeneratedPost, ContentType, Platform } from "@/pages/Index";
@@ -155,6 +156,36 @@ export function CanvasPanel({
     }
   };
 
+  const [publishingIds, setPublishingIds] = useState<Set<string>>(new Set());
+  const [publishedIds, setPublishedIds] = useState<Set<string>>(new Set());
+
+  const handlePublishToFacebook = async (post: GeneratedPost) => {
+    if (!post.imageUrl) return;
+
+    setPublishingIds((prev) => new Set(prev).add(post.id));
+
+    try {
+      const { data, error } = await supabase.functions.invoke("publish-facebook", {
+        body: { imageUrl: post.imageUrl, caption: post.caption },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setPublishedIds((prev) => new Set(prev).add(post.id));
+      toast.success("✅ Facebook-এ পাবলিশ হয়েছে!");
+    } catch (err: any) {
+      console.error("Facebook publish error:", err);
+      toast.error(err?.message || "Facebook-এ পাবলিশ ব্যর্থ হয়েছে");
+    } finally {
+      setPublishingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(post.id);
+        return next;
+      });
+    }
+  };
+
   const hasAnyImages = posts.some((p) => p.imageUrl);
   const isAnyGenerating = posts.some((p) => p.isGenerating);
 
@@ -233,12 +264,29 @@ export function CanvasPanel({
               </div>
 
               {/* Actions */}
-              <div className="p-2.5 flex gap-2">
+              <div className="p-2.5 flex gap-2 flex-wrap">
                 {post.imageUrl && (
-                  <Button size="sm" variant="outline" className="text-xs gap-1 rounded-lg flex-1" onClick={() => handleDownload(post)}>
-                    <Download className="h-3 w-3" />
-                    ডাউনলোড
-                  </Button>
+                  <>
+                    <Button size="sm" variant="outline" className="text-xs gap-1 rounded-lg flex-1" onClick={() => handleDownload(post)}>
+                      <Download className="h-3 w-3" />
+                      ডাউনলোড
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={publishedIds.has(post.id) ? "secondary" : "default"}
+                      className="text-xs gap-1 rounded-lg flex-1"
+                      onClick={() => handlePublishToFacebook(post)}
+                      disabled={publishingIds.has(post.id) || publishedIds.has(post.id)}
+                    >
+                      {publishingIds.has(post.id) ? (
+                        <><Loader2 className="h-3 w-3 animate-spin" /> পাবলিশ হচ্ছে...</>
+                      ) : publishedIds.has(post.id) ? (
+                        <>✅ পাবলিশ হয়েছে</>
+                      ) : (
+                        <><Send className="h-3 w-3" /> Facebook</>
+                      )}
+                    </Button>
+                  </>
                 )}
                 <Button size="sm" variant="ghost" className="text-xs gap-1 rounded-lg" onClick={() => handleCopyCaption(post.caption)}>
                   <Copy className="h-3 w-3" />

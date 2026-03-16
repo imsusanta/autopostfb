@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.generate-post]
 verify_jwt = false
+
+[functions.publish-facebook]
+verify_jwt = false

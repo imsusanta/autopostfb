@@ -170,8 +170,27 @@ export function InputPanel({
         body: { topic: topic.trim(), contentType },
       });
 
-      if (searchError) throw searchError;
-      if (searchData?.error) throw new Error(searchData.error);
+      // Handle non-2xx errors from edge functions (SDK wraps them as FunctionsHttpError)
+      if (searchError) {
+        let errorBody = "";
+        try {
+          // Try to read the actual error response body
+          const ctx = (searchError as any)?.context;
+          if (ctx && typeof ctx.json === "function") {
+            const body = await ctx.json();
+            errorBody = body?.error || "";
+          }
+        } catch { /* ignore parse errors */ }
+        
+        if (errorBody.includes("Credits exhausted") || errorBody.includes("402")) {
+          throw new Error("CREDITS_EXHAUSTED");
+        }
+        throw new Error(errorBody || searchError.message || "সার্ভার এরর");
+      }
+      if (searchData?.error) {
+        if (searchData.error.includes("Credits exhausted")) throw new Error("CREDITS_EXHAUSTED");
+        throw new Error(searchData.error);
+      }
 
       const result = searchData.data as SearchResult;
       setSearchResult(result);
@@ -189,10 +208,9 @@ export function InputPanel({
     } catch (err: any) {
       console.error(err);
       const message = err?.message || "কিছু একটা সমস্যা হয়েছে";
-      const isCreditsExhausted = message.includes("Credits exhausted") || message.includes("402");
       toast.error(
-        isCreditsExhausted
-          ? "AI credits শেষ — নতুন credit add করলে আবার generate করতে পারবেন"
+        message === "CREDITS_EXHAUSTED"
+          ? "⚠️ AI credits শেষ হয়ে গেছে। Lovable-এ credit add করে আবার চেষ্টা করুন।"
           : message
       );
       setSearchResult(null);

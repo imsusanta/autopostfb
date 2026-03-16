@@ -87,9 +87,19 @@ export function CanvasPanel({
 
       if (error) {
         const errMsg = await getFunctionErrorMessage(error);
-        throw new Error(errMsg.includes("Credits exhausted") ? "CREDITS_EXHAUSTED" : errMsg);
+        if (errMsg.includes("Credits exhausted") || errMsg.includes("402")) {
+          throw new Error("CREDITS_EXHAUSTED");
+        }
+        if (errMsg.includes("Rate limit exceeded") || errMsg.includes("429")) {
+          throw new Error("RATE_LIMITED");
+        }
+        throw new Error(errMsg);
       }
-      if (searchData?.error) throw new Error(searchData.error);
+      if (searchData?.error) {
+        if (searchData.error.includes("Credits exhausted")) throw new Error("CREDITS_EXHAUSTED");
+        if (searchData.error.includes("Rate limit exceeded")) throw new Error("RATE_LIMITED");
+        throw new Error(searchData.error);
+      }
 
       const facts = searchData.data?.facts || [];
       if (facts.length === 0) throw new Error("কোনো তথ্য পাওয়া যায়নি");
@@ -207,7 +217,9 @@ export function CanvasPanel({
       toast.error(
         message === "CREDITS_EXHAUSTED"
           ? "AI credits শেষ — credit add করলে আবার generate করতে পারবেন"
-          : message
+          : message === "RATE_LIMITED"
+            ? "⏳ এখন request limit এ পৌঁছে গেছে — একটু পরে আবার চেষ্টা করুন।"
+            : message
       );
     }
   };

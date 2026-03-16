@@ -1,1 +1,7 @@
 project_id = "kgikpfgzcxhynqokwbpp"
+
+[functions.search-news]
+verify_jwt = false
+
+[functions.generate-post]
+verify_jwt = false

@@ -15,6 +15,8 @@ interface CanvasPanelProps {
   lastTopic: string;
   lastContentType: ContentType;
   lastPlatform: Platform;
+  logoUrl: string;
+  footerText: string;
 }
 
 export function CanvasPanel({

@@ -32,6 +32,10 @@ interface InputPanelProps {
   setLastTopic: (v: string) => void;
   setLastContentType: (v: ContentType) => void;
   setLastPlatform: (v: Platform) => void;
+  logoUrl: string;
+  setLogoUrl: (v: string) => void;
+  footerText: string;
+  setFooterText: (v: string) => void;
 }
 
 export function InputPanel({
@@ -47,6 +51,10 @@ export function InputPanel({
   setLastTopic,
   setLastContentType,
   setLastPlatform,
+  logoUrl,
+  setLogoUrl,
+  footerText,
+  setFooterText,
 }: InputPanelProps) {
   const [topic, setTopic] = useState("");
   const [contentType, setContentType] = useState<ContentType>("gk");
@@ -342,6 +350,36 @@ export function InputPanel({
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Logo URL */}
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-foreground">লোগো URL</label>
+          <Input
+            value={logoUrl}
+            onChange={(e) => setLogoUrl(e.target.value)}
+            placeholder="https://example.com/logo.png"
+            className="bg-card border-border"
+            disabled={busy}
+          />
+          {logoUrl && (
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+              <img src={logoUrl} alt="Logo preview" className="h-8 w-8 object-contain rounded" onError={(e) => (e.currentTarget.style.display = 'none')} />
+              <span className="text-xs text-muted-foreground">লোগো প্রিভিউ</span>
+            </div>
+          )}
+        </div>
+
+        {/* Footer Text */}
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-foreground">ফুটার টেক্সট</label>
+          <Input
+            value={footerText}
+            onChange={(e) => setFooterText(e.target.value)}
+            placeholder="যেমন: practicekoro.online ভিজিট করুন"
+            className="bg-card border-border"
+            disabled={busy}
+          />
         </div>
 
         {/* Generate Button */}

@@ -27,6 +27,8 @@ const Index = () => {
   const [lastTopic, setLastTopic] = useState("");
   const [lastContentType, setLastContentType] = useState<ContentType>("gk");
   const [lastPlatform, setLastPlatform] = useState<Platform>("both");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [footerText, setFooterText] = useState("");
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -45,6 +47,10 @@ const Index = () => {
           setLastTopic={setLastTopic}
           setLastContentType={setLastContentType}
           setLastPlatform={setLastPlatform}
+          logoUrl={logoUrl}
+          setLogoUrl={setLogoUrl}
+          footerText={footerText}
+          setFooterText={setFooterText}
         />
       </div>
 
@@ -60,6 +66,8 @@ const Index = () => {
           lastTopic={lastTopic}
           lastContentType={lastContentType}
           lastPlatform={lastPlatform}
+          logoUrl={logoUrl}
+          footerText={footerText}
         />
       </div>
     </div>

@@ -15,6 +15,8 @@ interface CanvasPanelProps {
   lastTopic: string;
   lastContentType: ContentType;
   lastPlatform: Platform;
+  logoUrl: string;
+  footerText: string;
 }
 
 export function CanvasPanel({
@@ -27,6 +29,8 @@ export function CanvasPanel({
   lastTopic,
   lastContentType,
   lastPlatform,
+  logoUrl,
+  footerText,
 }: CanvasPanelProps) {
   const handleDownload = (post: GeneratedPost) => {
     if (!post.imageUrl) return;
@@ -323,7 +327,21 @@ export function CanvasPanel({
                     <p className="text-xs text-muted-foreground">তৈরি হচ্ছে...</p>
                   </div>
                 ) : post.imageUrl ? (
-                  <img src={post.imageUrl} alt="Generated post" className="w-full h-full object-cover" />
+                  <>
+                    <img src={post.imageUrl} alt="Generated post" className="w-full h-full object-cover" />
+                    {/* Logo overlay */}
+                    {logoUrl && (
+                      <div className="absolute top-2 right-2 z-10">
+                        <img src={logoUrl} alt="Logo" className="h-8 w-auto object-contain drop-shadow-lg" />
+                      </div>
+                    )}
+                    {/* Footer text overlay */}
+                    {footerText && (
+                      <div className="absolute bottom-0 left-0 right-0 z-10 bg-black/70 px-3 py-1.5">
+                        <p className="text-[9px] text-white/70 text-center leading-tight">{footerText}</p>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <p className="text-xs text-muted-foreground">ইমেজ তৈরি হয়নি</p>

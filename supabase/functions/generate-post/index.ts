@@ -36,25 +36,22 @@ LAYOUT (top to bottom):
 
 1. BACKGROUND: A stunning, photorealistic, high-quality photograph or illustration directly related to "${topic}". The image should be vivid, cinematic, and visually striking. The scene should clearly represent the topic context: "${caption}"
 
-2. TOP-RIGHT CORNER: A rounded rectangle badge/pill with semi-transparent gray background containing a small book/chat icon and the text "PRACTICE Koro." in clean sans-serif font (white text, "Koro." in bold with a colored dot)
+2. BOTTOM HALF - GRADIENT OVERLAY: A smooth gradient from fully transparent at center to dark black/very dark at bottom, covering roughly the lower 40-45% of the image
 
-3. BOTTOM HALF - GRADIENT OVERLAY: A smooth gradient from fully transparent at center to dark black/very dark at bottom, covering roughly the lower 40-45% of the image
+3. CATEGORY LABEL: Centered text "${categoryLabel}" in elegant, widely-spaced uppercase letters (tracking/letter-spacing wide), golden/amber color, with thin decorative horizontal lines on both sides. Position this above the main text.
 
-4. CATEGORY LABEL: Centered text "${categoryLabel}" in elegant, widely-spaced uppercase letters (tracking/letter-spacing wide), golden/amber color, with thin decorative horizontal lines on both sides. Position this above the main text.
-
-5. MAIN BENGALI TEXT: Below the category label, render this Bengali text in LARGE, BOLD, white font. This is the most important element — must be clearly readable:
+4. MAIN BENGALI TEXT: Below the category label, render this Bengali text in LARGE, BOLD, white font. This is the most important element — must be clearly readable:
 "${caption}"
 - Use a clean, bold sans-serif Bengali font
 - Center-aligned
 - Text should be large enough to read easily on mobile
 - High contrast white text against the dark gradient
 
-6. FOOTER: At the very bottom, a thin dark bar with small Bengali text in muted color: "মক টেস্ট দিয়ে নিজের প্রস্তুতি যাচাই করুন। সেরা প্র্যাকটিসের জন্য এখনই practicekoro.online ভিজিট করুন।"
-
 CRITICAL RULES:
 - The Bengali text MUST be rendered perfectly and be fully readable
 - The background image should be related to the topic
 - The gradient overlay must be smooth and natural
+- Do NOT add any logo, watermark, badge, or footer text to the image
 - Overall professional quality suitable for ${platform || "Facebook and Instagram"}
 - Style reference: Professional educational/news content pages on Facebook/Instagram`;
 

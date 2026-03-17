@@ -32,6 +32,10 @@ interface InputPanelProps {
   setLastTopic: (v: string) => void;
   setLastContentType: (v: ContentType) => void;
   setLastPlatform: (v: Platform) => void;
+  logoUrl: string;
+  setLogoUrl: (v: string) => void;
+  footerText: string;
+  setFooterText: (v: string) => void;
 }
 
 export function InputPanel({
@@ -47,6 +51,10 @@ export function InputPanel({
   setLastTopic,
   setLastContentType,
   setLastPlatform,
+  logoUrl,
+  setLogoUrl,
+  footerText,
+  setFooterText,
 }: InputPanelProps) {
   const [topic, setTopic] = useState("");
   const [contentType, setContentType] = useState<ContentType>("gk");

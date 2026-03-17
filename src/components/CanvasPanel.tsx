@@ -29,6 +29,8 @@ export function CanvasPanel({
   lastTopic,
   lastContentType,
   lastPlatform,
+  logoUrl,
+  footerText,
 }: CanvasPanelProps) {
   const handleDownload = (post: GeneratedPost) => {
     if (!post.imageUrl) return;
